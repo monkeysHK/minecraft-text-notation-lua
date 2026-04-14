@@ -6,23 +6,23 @@ local record lexer
         position: Position
     end
 
-    interface Position
+    record Position
         index: integer
         line: integer
         col: integer
     end
 
-    interface PlainTextToken is Token
+    record PlainTextToken is Token
         where self.kind == "PlainTextToken"
 
         content: string
     end
 
-    interface NewlineToken is Token
+    record NewlineToken is Token
         where self.kind == "NewlineToken"
     end
 
-    interface TagToken is Token
+    record TagToken is Token
         where self.kind == "TagToken"
 
         name: string
@@ -31,7 +31,7 @@ local record lexer
         originalString: string
     end
 
-    interface TagSegment
+    record TagSegment
         position: Position
         content: string
         originalString: string
@@ -40,7 +40,7 @@ local record lexer
     type TokenizeResult<T> = TokenizeAccept<T> | TokenizeReject | TokenizeFail
 
     -- Used when tokenizer successfully parses a token
-    interface TokenizeAccept<T>
+    record TokenizeAccept<T>
         where self.kind == "TokenizeAccept"
 
         kind: string
@@ -50,7 +50,7 @@ local record lexer
     end
 
     -- Used when tokenizer determines that this is not the required token
-    interface TokenizeReject
+    record TokenizeReject
         where self.kind == "TokenizeReject"
 
         kind: string
@@ -58,54 +58,89 @@ local record lexer
 
     -- Used when tokenizer determines that this is the required token
     -- but something was wrong
-    interface TokenizeFail
+    record TokenizeFail
         where self.kind == "TokenizeFail"
 
         kind: string
         failure: Problem
     end
 
-    interface Problem
+    record Problem
         position: Position
         message: string
     end
 
 end
 
-function lexer.makePlainText(position: lexer.Position, content: string): lexer.PlainTextToken
-    return { kind = "PlainTextToken", position = position, content = content }
+function lexer.PlainTextToken.new(position: lexer.Position, content: string): lexer.PlainTextToken
+    local self: lexer.PlainTextToken = setmetatable({}, { __index = lexer.PlainTextToken })
+    self.kind = "PlainTextToken"
+    self.position = position
+    self.content = content
+    return self
 end
 
-function lexer.makeNewline(position: lexer.Position): lexer.NewlineToken
-    return { kind = "NewlineToken", position = position }
+function lexer.NewlineToken.new(position: lexer.Position): lexer.NewlineToken
+    local self: lexer.NewlineToken = setmetatable({}, { __index = lexer.NewlineToken })
+    self.kind = "NewlineToken"
+    self.position = position
+    return self
 end
 
-function lexer.makeTag(position: lexer.Position, name: string, arguments: {lexer.TagSegment}, isEndTag: boolean, originalString: string): lexer.TagToken
-    return { kind = "TagToken", position = position, name = name, arguments = arguments, isEndTag = isEndTag, originalString = originalString }
+function lexer.TagToken.new(position: lexer.Position, name: string, arguments: {lexer.TagSegment}, isEndTag: boolean, originalString: string): lexer.TagToken
+    local self: lexer.TagToken = setmetatable({}, { __index = lexer.TagToken })
+    self.kind = "TagToken"
+    self.position = position
+    self.name = name
+    self.arguments = arguments
+    self.isEndTag = isEndTag
+    self.originalString = originalString
+    return self
 end
 
-function lexer.makeTagSegment(position: lexer.Position, content: string, originalString: string): lexer.TagSegment
-    return { position = position, content = content, originalString = originalString }
+function lexer.TagSegment.new(position: lexer.Position, content: string, originalString: string): lexer.TagSegment
+    local self: lexer.TagSegment = setmetatable({}, { __index = lexer.TagSegment })
+    self.position = position
+    self.content = content
+    self.originalString = originalString
+    return self
 end
 
-function lexer.makePosition(index: integer, line: integer, col: integer): lexer.Position
-    return { index = index, line = line, col = col }
+function lexer.Position.new(index: integer, line: integer, col: integer): lexer.Position
+    local self: lexer.Position = setmetatable({}, { __index = lexer.Position })
+    self.index = index
+    self.line = line
+    self.col = col
+    return self
 end
 
-function lexer.makeProblem(message: string, position: lexer.Position): lexer.Problem
-    return { message = message, position = position }
+function lexer.Problem.new(message: string, position: lexer.Position): lexer.Problem
+    local self: lexer.Problem = setmetatable({}, { __index = lexer.Problem })
+    self.message = message
+    self.position = position
+    return self
 end
 
-function lexer.makeAccept<T>(result: T, nextIndex: integer, warnings: {lexer.Problem}): lexer.TokenizeAccept<T>
-    return { kind = "TokenizeAccept", result = result, nextIndex = nextIndex, warnings = warnings }
+function lexer.TokenizeAccept.new<T>(result: T, nextIndex: integer, warnings: {lexer.Problem}): lexer.TokenizeAccept<T>
+    local self: lexer.TokenizeAccept<T> = setmetatable({}, { __index = lexer.TokenizeAccept })
+    self.kind = "TokenizeAccept"
+    self.result = result
+    self.nextIndex = nextIndex
+    self.warnings = warnings
+    return self
 end
 
-function lexer.makeReject(): lexer.TokenizeReject
-    return { kind = "TokenizeReject" }
+function lexer.TokenizeReject.new(): lexer.TokenizeReject
+    local self: lexer.TokenizeReject = setmetatable({}, { __index = lexer.TokenizeReject })
+    self.kind = "TokenizeReject"
+    return self
 end
 
-function lexer.makeFail(failure: lexer.Problem): lexer.TokenizeFail
-    return { kind = "TokenizeFail", failure = failure }
+function lexer.TokenizeFail.new(failure: lexer.Problem): lexer.TokenizeFail
+    local self: lexer.TokenizeFail = setmetatable({}, { __index = lexer.TokenizeFail })
+    self.kind = "TokenizeFail"
+    self.failure = failure
+    return self
 end
 
 -- Table to pass the text without copying the text
@@ -115,33 +150,33 @@ local record StringReference
     positionMap: {integer: lexer.Position}  -- maps indices to lexer.Position
 end
 
-local function makeStringReference(text: string): StringReference
+function StringReference.new(text: string): StringReference
     local function precomputePositionMap(input: string, length: integer): {integer: lexer.Position}
         local positionMap: {integer: lexer.Position} = {}
         local line = 1
         local col = 0
         for i = 1, length do
             col = col + 1
-            positionMap[i] = lexer.makePosition(i, line, col)
+            positionMap[i] = lexer.Position.new(i, line, col)
             local ch = input:sub(i, i)
             if ch == "\n" then
                 line = line + 1
                 col = 0
             end
         end
-        positionMap[length + 1] = lexer.makePosition(length + 1, line, col + 1)  -- eof
+        positionMap[length + 1] = lexer.Position.new(length + 1, line, col + 1)  -- eof
         return positionMap
     end
 
-    return {
-        text = text,
-        length = #text,
-        positionMap = precomputePositionMap(text, #text),
-    }
+    local self: StringReference = setmetatable({}, { __index = StringReference })
+    self.text = text
+    self.length = #text
+    self.positionMap = precomputePositionMap(text, #text)
+    return self
 end
 
-local function makePosition(index: integer, textref: StringReference): lexer.Position
-    local position = textref.positionMap[index]
+function StringReference:getPosition(index: integer): lexer.Position
+    local position = self.positionMap[index]
     assert(position ~= nil)
     return position
 end
@@ -167,7 +202,7 @@ local function tokenizeNonEmptyStringWithValidator(
         end
 
         if not validateChar(ch) then
-            return lexer.makeFail(lexer.makeProblem(validateFailMessage:format(ch), makePosition(pos, textref)))
+            return lexer.TokenizeFail.new(lexer.Problem.new(validateFailMessage:format(ch), textref:getPosition(pos)))
         end
 
         local isEscape = ch == "\\"
@@ -180,7 +215,7 @@ local function tokenizeNonEmptyStringWithValidator(
                 pos = pos + 2
             else
                 -- non-strict mode: invalid backslash as literal
-                warnings[#warnings + 1] = lexer.makeProblem("invalid escape " .. escapeSequence, makePosition(pos, textref))
+                warnings[#warnings + 1] = lexer.Problem.new("invalid escape " .. escapeSequence, textref:getPosition(pos))
                 content = content .. "\\"
                 pos = pos + 1
             end
@@ -194,10 +229,10 @@ local function tokenizeNonEmptyStringWithValidator(
     end
 
     if content == "" then
-        return lexer.makeReject()
+        return lexer.TokenizeReject.new()
     end
 
-    return lexer.makeAccept(content, pos, warnings)
+    return lexer.TokenizeAccept.new(content, pos, warnings)
 
 end
 
@@ -238,11 +273,11 @@ local function seekExpectedStrings(
     end
 
     if not matches then
-        return lexer.makeReject()
+        return lexer.TokenizeReject.new()
     end
 
     local noWarning = {}
-    return lexer.makeAccept(matchedString, startIndex + #matchedString, noWarning)
+    return lexer.TokenizeAccept.new(matchedString, startIndex + #matchedString, noWarning)
 end
 
 local function tokenizeTagName(textref: StringReference, startIndex: integer): lexer.TokenizeResult<string>
@@ -269,7 +304,7 @@ local function tokenizeTagName(textref: StringReference, startIndex: integer): l
     )
 
     if result is lexer.TokenizeReject then
-        return lexer.makeFail(lexer.makeProblem("tag name cannot be empty", makePosition(startIndex, textref)))
+        return lexer.TokenizeFail.new(lexer.Problem.new("tag name cannot be empty", textref:getPosition(startIndex)))
     end
 
     return result
@@ -296,11 +331,11 @@ local function tokenizeUnquotedTagArg(textref: StringReference, startIndex: inte
     )
 
     local isEmptyString = result is lexer.TokenizeReject
-    local acceptPosition = makePosition(startIndex, textref)
+    local acceptPosition = textref:getPosition(startIndex)
 
     if isEmptyString then
         local noWarning = {}
-        return lexer.makeAccept(lexer.makeTagSegment(acceptPosition, "", ""), startIndex, noWarning)
+        return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, "", ""), startIndex, noWarning)
     end
 
     if result is lexer.TokenizeFail then
@@ -310,14 +345,14 @@ local function tokenizeUnquotedTagArg(textref: StringReference, startIndex: inte
     assert(result is lexer.TokenizeAccept<string>)
     local originalString = textref.text:sub(startIndex, result.nextIndex - 1)
 
-    return lexer.makeAccept(lexer.makeTagSegment(acceptPosition, result.result, originalString), result.nextIndex, result.warnings)
+    return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, result.result, originalString), result.nextIndex, result.warnings)
 end
 
 local function tokenizeSingleQuotedTagArg(textref: StringReference, startIndex: integer): lexer.TokenizeResult<lexer.TagSegment>
     local seekResult = seekExpectedStrings(textref, startIndex, {"'"})
 
     if seekResult is lexer.TokenizeReject or seekResult is lexer.TokenizeFail then
-        return lexer.makeReject()
+        return lexer.TokenizeReject.new()
     end
 
     local validEscapes: {string: string} = {
@@ -345,26 +380,26 @@ local function tokenizeSingleQuotedTagArg(textref: StringReference, startIndex: 
     local seekResultEnd = seekExpectedStrings(textref, endQuotePosition, {"'"})
 
     if seekResultEnd is lexer.TokenizeReject or seekResultEnd is lexer.TokenizeFail then
-        return lexer.makeFail(lexer.makeProblem("unclosed single-quoted tag argument", makePosition(endQuotePosition, textref)))
+        return lexer.TokenizeFail.new(lexer.Problem.new("unclosed single-quoted tag argument", textref:getPosition(endQuotePosition)))
     end
 
-    local acceptPosition = makePosition(startIndex, textref)
+    local acceptPosition = textref:getPosition(startIndex)
     local originalString = textref.text:sub(startIndex, seekResultEnd.nextIndex - 1)
 
     if isEmptyString then
         local noWarning = {}
-        return lexer.makeAccept(lexer.makeTagSegment(acceptPosition, "", originalString), seekResultEnd.nextIndex, noWarning)
+        return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, "", originalString), seekResultEnd.nextIndex, noWarning)
     end
 
     assert(result is lexer.TokenizeAccept<string>)
-    return lexer.makeAccept(lexer.makeTagSegment(acceptPosition, result.result, originalString), seekResultEnd.nextIndex, result.warnings)
+    return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, result.result, originalString), seekResultEnd.nextIndex, result.warnings)
 end
 
 local function tokenizeDoubleQuotedTagArg(textref: StringReference, startIndex: integer): lexer.TokenizeResult<lexer.TagSegment>
     local seekResult = seekExpectedStrings(textref, startIndex, {'"'})
 
     if seekResult is lexer.TokenizeReject or seekResult is lexer.TokenizeFail then
-        return lexer.makeReject()
+        return lexer.TokenizeReject.new()
     end
 
     local validEscapes: {string: string} = {
@@ -392,26 +427,26 @@ local function tokenizeDoubleQuotedTagArg(textref: StringReference, startIndex: 
     local seekResultEnd = seekExpectedStrings(textref, endQuotePosition, {'"'})
 
     if seekResultEnd is lexer.TokenizeReject or seekResultEnd is lexer.TokenizeFail then
-        return lexer.makeFail(lexer.makeProblem("unclosed double-quoted tag argument", makePosition(endQuotePosition, textref)))
+        return lexer.TokenizeFail.new(lexer.Problem.new("unclosed double-quoted tag argument", textref:getPosition(endQuotePosition)))
     end
 
-    local acceptPosition = makePosition(startIndex, textref)
+    local acceptPosition = textref:getPosition(startIndex)
     local originalString = textref.text:sub(startIndex, seekResultEnd.nextIndex - 1)
 
     if isEmptyString then
         local noWarning = {}
-        return lexer.makeAccept(lexer.makeTagSegment(acceptPosition, "", originalString), seekResultEnd.nextIndex, noWarning)
+        return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, "", originalString), seekResultEnd.nextIndex, noWarning)
     end
 
     assert(result is lexer.TokenizeAccept<string>)
-    return lexer.makeAccept(lexer.makeTagSegment(acceptPosition, result.result, originalString), seekResultEnd.nextIndex, result.warnings)
+    return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, result.result, originalString), seekResultEnd.nextIndex, result.warnings)
 end
 
 local function tokenizeTag(textref: StringReference, startIndex: integer): lexer.TokenizeResult<lexer.Token>
     local startTagResult = seekExpectedStrings(textref, startIndex, {"</", "<"})
 
     if startTagResult is lexer.TokenizeReject or startTagResult is lexer.TokenizeFail then
-        return lexer.makeReject()
+        return lexer.TokenizeReject.new()
     end
 
     local warnings: {lexer.Problem} = {}
@@ -423,7 +458,7 @@ local function tokenizeTag(textref: StringReference, startIndex: integer): lexer
     if tagNameResult is lexer.TokenizeFail then
         -- non-strict mode: display as plain text for invalid tag name
         warnings[#warnings + 1] = tagNameResult.failure
-        return lexer.makeAccept(lexer.makePlainText(makePosition(startIndex, textref), textref.text:sub(startIndex, tagNameResult.failure.position.index - 1)), tagNameResult.failure.position.index, warnings)
+        return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, tagNameResult.failure.position.index - 1)), tagNameResult.failure.position.index, warnings)
     end
 
     assert(not tagNameResult is lexer.TokenizeReject)
@@ -441,8 +476,8 @@ local function tokenizeTag(textref: StringReference, startIndex: integer): lexer
         if seekResult is lexer.TokenizeReject or seekResult is lexer.TokenizeFail then
             -- non-strict mode: display as plain text for invalid character in tag
             local ch = textref.text:sub(pos, pos)
-            warnings[#warnings + 1] = lexer.makeProblem("invalid character in tag: " .. ch, makePosition(pos, textref))
-            return lexer.makeAccept(lexer.makePlainText(makePosition(startIndex, textref), textref.text:sub(startIndex, pos - 1)), pos, warnings)
+            warnings[#warnings + 1] = lexer.Problem.new("invalid character in tag: " .. ch, textref:getPosition(pos))
+            return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, pos - 1)), pos, warnings)
         end
 
         pos = seekResult.nextIndex
@@ -450,7 +485,7 @@ local function tokenizeTag(textref: StringReference, startIndex: integer): lexer
         local reachedEndOfTag = seekResult.result == ">"
         if reachedEndOfTag then
             local originalString = textref.text:sub(startIndex, pos - 1)
-            return lexer.makeAccept(lexer.makeTag(makePosition(startIndex, textref), tagNameResult.result, arguments, isEndTag, originalString), pos, warnings)
+            return lexer.TokenizeAccept.new(lexer.TagToken.new(textref:getPosition(startIndex), tagNameResult.result, arguments, isEndTag, originalString), pos, warnings)
         end
 
         local foundResult: lexer.TokenizeAccept<lexer.TagSegment> | nil = nil
@@ -459,7 +494,7 @@ local function tokenizeTag(textref: StringReference, startIndex: integer): lexer
             if result is lexer.TokenizeFail then
                 -- non-strict mode: display as plain text for invalid tag argument
                 warnings[#warnings + 1] = result.failure
-                return lexer.makeAccept(lexer.makePlainText(makePosition(startIndex, textref), textref.text:sub(startIndex, result.failure.position.index - 1)), result.failure.position.index, warnings)
+                return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, result.failure.position.index - 1)), result.failure.position.index, warnings)
             end
 
             if result is lexer.TokenizeAccept<lexer.TagSegment> then
@@ -479,18 +514,18 @@ local function tokenizeTag(textref: StringReference, startIndex: integer): lexer
     end
 
     -- non-strict mode: display as plain text for unclosed tag
-    warnings[#warnings + 1] = lexer.makeProblem("unclosed tag", makePosition(pos, textref))
-    return lexer.makeAccept(lexer.makePlainText(makePosition(startIndex, textref), textref.text:sub(startIndex, pos - 1)), pos, warnings)
+    warnings[#warnings + 1] = lexer.Problem.new("unclosed tag", textref:getPosition(pos))
+    return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, pos - 1)), pos, warnings)
 end
 
 local function tokenizeNewline(textref: StringReference, startIndex: integer): lexer.TokenizeResult<lexer.NewlineToken>
     local result = seekExpectedStrings(textref, startIndex, {"\n"})
 
     if result is lexer.TokenizeReject or result is lexer.TokenizeFail then
-        return lexer.makeReject()
+        return lexer.TokenizeReject.new()
     end
 
-    return lexer.makeAccept(lexer.makeNewline(makePosition(startIndex, textref)), result.nextIndex, {})
+    return lexer.TokenizeAccept.new(lexer.NewlineToken.new(textref:getPosition(startIndex)), result.nextIndex, {})
 end
 
 local function tokenizePlainText(textref: StringReference, startIndex: integer): lexer.TokenizeResult<lexer.Token>
@@ -513,7 +548,7 @@ local function tokenizePlainText(textref: StringReference, startIndex: integer):
     assert(not result is lexer.TokenizeFail)
 
     if result is lexer.TokenizeAccept<string> then
-        return lexer.makeAccept(lexer.makePlainText(makePosition(startIndex, textref), result.result), result.nextIndex, result.warnings)
+        return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), result.result), result.nextIndex, result.warnings)
     end
 
     return result
@@ -523,7 +558,7 @@ function lexer.tokenize(text: string): lexer.TokenizeAccept<{lexer.Token}>
     local tokens: {lexer.Token} = {}
     local warnings: {lexer.Problem} = {}
 
-    local textref: StringReference = makeStringReference(text)
+    local textref: StringReference = StringReference.new(text)
 
     local pos = 1
 
@@ -551,7 +586,7 @@ function lexer.tokenize(text: string): lexer.TokenizeAccept<{lexer.Token}>
         end
     end
 
-    return lexer.makeAccept(tokens, pos, warnings)
+    return lexer.TokenizeAccept.new(tokens, pos, warnings)
 end
 
 return lexer

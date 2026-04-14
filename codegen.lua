@@ -1,7 +1,7 @@
 local lexer = require("lexer")
 local parser = require("parser")
 
-local codegen = {}
+local codegen = { CompileAccept = {}, CompileFail = {}, CompileOptions = {} }
 
 
 
@@ -28,12 +28,25 @@ local codegen = {}
 
 
 
-function codegen.makeAccept(result, warnings)
-   return { kind = "CompileAccept", result = result, warnings = warnings }
+function codegen.CompileAccept.new(result, warnings)
+   local self = setmetatable({}, { __index = codegen.CompileAccept })
+   self.kind = "CompileAccept"
+   self.result = result
+   self.warnings = warnings
+   return self
 end
 
-function codegen.makeFail(errors)
-   return { kind = "CompileFail", errors = errors }
+function codegen.CompileFail.new(errors)
+   local self = setmetatable({}, { __index = codegen.CompileFail })
+   self.kind = "CompileFail"
+   self.errors = errors
+   return self
+end
+
+function codegen.CompileOptions.new(useStrictMode)
+   local self = setmetatable({}, { __index = codegen.CompileOptions })
+   self.useStrictMode = useStrictMode
+   return self
 end
 
 local function precomputePositionMap(input, length)
@@ -42,14 +55,14 @@ local function precomputePositionMap(input, length)
    local col = 0
    for i = 1, length do
       col = col + 1
-      positionMap[i] = lexer.makePosition(i, line, col)
+      positionMap[i] = lexer.Position.new(i, line, col)
       local ch = input:sub(i, i)
       if ch == "\n" then
          line = line + 1
          col = 0
       end
    end
-   positionMap[length + 1] = lexer.makePosition(length + 1, line, col + 1)
+   positionMap[length + 1] = lexer.Position.new(length + 1, line, col + 1)
    return positionMap
 end
 
@@ -179,14 +192,14 @@ local function localToGlobalPosition(localPosition, parentPosition)
    local index = parentPosition.index + localPosition.index - 1
    local line = parentPosition.line + localPosition.line - 1
    local col = localPosition.line == 1 and (parentPosition.col + localPosition.col - 1) or localPosition.col
-   return lexer.makePosition(index, line, col)
+   return lexer.Position.new(index, line, col)
 end
 
 local function translateProblemsToGlobalPositions(problems, parentPosition, originalMinecraftTextString)
    local newProblems = {}
    local reverseMap = reverseTagArg(originalMinecraftTextString)
    for _, problem in ipairs(problems) do
-      newProblems[#newProblems + 1] = lexer.makeProblem(problem.message, localToGlobalPosition(reverseMap[problem.position.index], parentPosition))
+      newProblems[#newProblems + 1] = lexer.Problem.new(problem.message, localToGlobalPosition(reverseMap[problem.position.index], parentPosition))
    end
    return newProblems
 end
@@ -231,7 +244,7 @@ local function genComponents(components, options)
       result = result .. generateResult.result
    end
 
-   return codegen.makeAccept(result, warnings)
+   return codegen.CompileAccept.new(result, warnings)
 end
 
 function codegen.generate(node, options)
@@ -289,7 +302,7 @@ function codegen.generate(node, options)
    elseif node.kind == "ShowTextNode" then
       local showTextSecondaryParse = codegen.compile(node.text, options)
       if showTextSecondaryParse.kind == "CompileFail" then
-         return codegen.makeFail(translateProblemsToGlobalPositions(showTextSecondaryParse.errors, node.textPosition, node.originalString))
+         return codegen.CompileFail.new(translateProblemsToGlobalPositions(showTextSecondaryParse.errors, node.textPosition, node.originalString))
       end
       addWarnings(translateProblemsToGlobalPositions(showTextSecondaryParse.warnings, node.textPosition, node.originalString))
 
@@ -307,7 +320,7 @@ function codegen.generate(node, options)
       error("This should not be reached")
    end
 
-   return codegen.makeAccept(result, warnings)
+   return codegen.CompileAccept.new(result, warnings)
 end
 
 function codegen.compile(text, options)
@@ -330,7 +343,7 @@ function codegen.compile(text, options)
    if options.useStrictMode then
       local hasWarning = #tokens.warnings > 0
       if hasWarning then
-         return codegen.makeFail(tokens.warnings)
+         return codegen.CompileFail.new(tokens.warnings)
       end
    end
 
@@ -343,7 +356,7 @@ function codegen.compile(text, options)
       if hasErrorOrWarning then
          local errors = ast.strictProblems
          addWarningsAsErrors(errors, ast.warnings)
-         return codegen.makeFail(errors)
+         return codegen.CompileFail.new(errors)
       end
    end
 
@@ -357,7 +370,7 @@ function codegen.compile(text, options)
 
    addWarnings(result.warnings)
 
-   return codegen.makeAccept(result.result, warnings)
+   return codegen.CompileAccept.new(result.result, warnings)
 end
 
 return codegen

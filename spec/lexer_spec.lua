@@ -14,31 +14,31 @@ local function extractResultNoWarn(tokenizeResult)
 end
 
 local function position(index, row, col)
-    return lexer.makePosition(index, row, col)
+    return lexer.Position.new(index, row, col)
 end
 
 local function lineonepos(index)
-    return lexer.makePosition(index, 1, index)
+    return lexer.Position.new(index, 1, index)
 end
 
 local function problem(message, position)
-    return lexer.makeProblem(message, position)
+    return lexer.Problem.new(message, position)
 end
 
 local function plainText(position, content)
-    return lexer.makePlainText(position, content)
+    return lexer.PlainTextToken.new(position, content)
 end
 
 local function newline(position)
-    return lexer.makeNewline(position)
+    return lexer.NewlineToken.new(position)
 end
 
 local function tag(position, name, arguments, isEndTag, originalString)
-    return lexer.makeTag(position, name, arguments, isEndTag, originalString)
+    return lexer.TagToken.new(position, name, arguments, isEndTag, originalString)
 end
 
 local function tagSegment(position, content, originalString)
-    return lexer.makeTagSegment(position, content, originalString)
+    return lexer.TagSegment.new(position, content, originalString)
 end
 
 describe("plain text and basic string parsing", function()

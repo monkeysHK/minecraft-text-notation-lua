@@ -9,7 +9,7 @@ local record parser
         position: lexer.Position
     end
 
-    interface MinecraftTextNode
+    record MinecraftTextNode
         is Node
         where self.kind == "MinecraftTextNode"
 
@@ -20,7 +20,7 @@ local record parser
 
     type VoidTagNode = NewlineNode | NewlineNode
 
-    interface NewlineNode
+    record NewlineNode
         is Node
         where self.kind == "NewlineNode"
     end
@@ -32,7 +32,7 @@ local record parser
         components: {TextComponent}
     end
 
-    interface NamedColorNode
+    record NamedColorNode
         is NormalTagNode
         where self.kind == "NamedColorNode"
 
@@ -41,14 +41,14 @@ local record parser
 
     type NamedColor = enum "black" "dark_blue" "dark_green" "dark_aqua" "dark_red" "dark_purple" "gold" "gray" "dark_gray" "blue" "green" "aqua" "red" "light_purple" "yellow" "white" end
 
-    interface HexColorNode
+    record HexColorNode
         is NormalTagNode
         where self.kind == "HexColorNode"
 
         color: string  -- 6 digit hex code without the `#` symbol
     end
 
-    interface DecorationNode
+    record DecorationNode
         is NormalTagNode
         where self.kind == "DecorationNode"
 
@@ -59,7 +59,7 @@ local record parser
 
     type HoverNode = ShowTextNode | ShowTextNode
 
-    interface ShowTextNode
+    record ShowTextNode
         is NormalTagNode
         where self.kind == "ShowTextNode"
 
@@ -68,7 +68,7 @@ local record parser
         originalString: string
     end
 
-    interface PlainTextNode
+    record PlainTextNode
         is NormalTagNode
         where self.kind == "PlainTextNode"
 
@@ -78,7 +78,7 @@ local record parser
     type ParseResult<T> = ParseAccept<T> | ParseReject | ParseFail
 
     -- Used when parser successfully parses a token
-    interface ParseAccept<T>
+    record ParseAccept<T>
         where self.kind == "ParseAccept"
 
         kind: string
@@ -89,7 +89,7 @@ local record parser
     end
 
     -- Used when parser determines that this is not the required token
-    interface ParseReject
+    record ParseReject
         where self.kind == "ParseReject"
 
         kind: string
@@ -97,7 +97,7 @@ local record parser
 
     -- Used when parser determines that this is the required token
     -- but something was wrong
-    interface ParseFail
+    record ParseFail
         where self.kind == "ParseFail"
 
         kind: string
@@ -106,45 +106,89 @@ local record parser
 
 end
 
-function parser.makeMinecraftText(position: lexer.Position, components: {parser.TextComponent}): parser.MinecraftTextNode
-    return { kind = "MinecraftTextNode", position = position, components = components }
+function parser.MinecraftTextNode.new(position: lexer.Position, components: {parser.TextComponent}): parser.MinecraftTextNode
+    local self: parser.MinecraftTextNode = setmetatable({}, { __index = parser.MinecraftTextNode })
+    self.kind = "MinecraftTextNode"
+    self.position = position
+    self.components = components
+    return self
 end
 
-function parser.makeNewline(position: lexer.Position): parser.NewlineNode
-    return { kind = "NewlineNode", position = position }
+function parser.NewlineNode.new(position: lexer.Position): parser.NewlineNode
+    local self: parser.NewlineNode = setmetatable({}, { __index = parser.NewlineNode })
+    self.kind = "NewlineNode"
+    self.position = position
+    return self
 end
 
-function parser.makeNamedColor(position: lexer.Position, color: parser.NamedColor, components: {parser.TextComponent}): parser.NamedColorNode
-    return { kind = "NamedColorNode", position = position, color = color, components = components }
+function parser.NamedColorNode.new(position: lexer.Position, color: parser.NamedColor, components: {parser.TextComponent}): parser.NamedColorNode
+    local self: parser.NamedColorNode = setmetatable({}, { __index = parser.NamedColorNode })
+    self.kind = "NamedColorNode"
+    self.position = position
+    self.color = color
+    self.components = components
+    return self
 end
 
-function parser.makeHexColor(position: lexer.Position, color: string, components: {parser.TextComponent}): parser.HexColorNode
+function parser.HexColorNode.new(position: lexer.Position, color: string, components: {parser.TextComponent}): parser.HexColorNode
     assert(#color == 6)
-    return { kind = "HexColorNode", position = position, color = color, components = components }
+    local self: parser.HexColorNode = setmetatable({}, { __index = parser.HexColorNode })
+    self.kind = "HexColorNode"
+    self.position = position
+    self.color = color
+    self.components = components
+    return self
 end
 
-function parser.makeDecoration(position: lexer.Position, decoration: parser.Decoration, components: {parser.TextComponent}): parser.DecorationNode
-    return { kind = "DecorationNode", position = position, decoration = decoration, components = components }
+function parser.DecorationNode.new(position: lexer.Position, decoration: parser.Decoration, components: {parser.TextComponent}): parser.DecorationNode
+    local self: parser.DecorationNode = setmetatable({}, { __index = parser.DecorationNode })
+    self.kind = "DecorationNode"
+    self.position = position
+    self.decoration = decoration
+    self.components = components
+    return self
 end
 
-function parser.makeShowText(position: lexer.Position, text: string, textPosition: lexer.Position, originalString: string, components: {parser.TextComponent}): parser.ShowTextNode
-    return { kind = "ShowTextNode", position = position, text = text, textPosition = textPosition, originalString = originalString, components = components }
+function parser.ShowTextNode.new(position: lexer.Position, text: string, textPosition: lexer.Position, originalString: string, components: {parser.TextComponent}): parser.ShowTextNode
+    local self: parser.ShowTextNode = setmetatable({}, { __index = parser.ShowTextNode })
+    self.kind = "ShowTextNode"
+    self.position = position
+    self.text = text
+    self.textPosition = textPosition
+    self.originalString = originalString
+    self.components = components
+    return self
 end
 
-function parser.makePlainText(position: lexer.Position, content: string): parser.PlainTextNode
-    return { kind = "PlainTextNode", position = position, content = content }
+function parser.PlainTextNode.new(position: lexer.Position, content: string): parser.PlainTextNode
+    local self: parser.PlainTextNode = setmetatable({}, { __index = parser.PlainTextNode })
+    self.kind = "PlainTextNode"
+    self.position = position
+    self.content = content
+    return self
 end
 
-function parser.makeAccept<T>(result: T, nextIndex: integer, warnings: {lexer.Problem}, strictProblems: {lexer.Problem}): parser.ParseAccept<T>
-    return { kind = "ParseAccept", result = result, nextIndex = nextIndex, warnings = warnings, strictProblems = strictProblems }
+function parser.ParseAccept.new<T>(result: T, nextIndex: integer, warnings: {lexer.Problem}, strictProblems: {lexer.Problem}): parser.ParseAccept<T>
+    local self: parser.ParseAccept<T> = setmetatable({}, { __index = parser.ParseAccept })
+    self.kind = "ParseAccept"
+    self.result = result
+    self.nextIndex = nextIndex
+    self.warnings = warnings
+    self.strictProblems = strictProblems
+    return self
 end
 
-function parser.makeReject(): parser.ParseReject
-    return { kind = "ParseReject" }
+function parser.ParseReject.new(): parser.ParseReject
+    local self: parser.ParseReject = setmetatable({}, { __index = parser.ParseReject })
+    self.kind = "ParseReject"
+    return self
 end
 
-function parser.makeFail(failure: lexer.Problem): parser.ParseFail
-    return { kind = "ParseFail", failure = failure }
+function parser.ParseFail.new(failure: lexer.Problem): parser.ParseFail
+    local self: parser.ParseFail = setmetatable({}, { __index = parser.ParseFail })
+    self.kind = "ParseFail"
+    self.failure = failure
+    return self
 end
 
 local function tagMatches(startTag: lexer.TagToken, endTag: lexer.TagToken): boolean
@@ -169,18 +213,18 @@ local function parseNewlineTag(tag: lexer.TagToken, startIndex: integer): parser
     local isStartTag = tag is lexer.TagToken and not tag.isEndTag
 
     if not isStartTag then
-        return parser.makeReject()
+        return parser.ParseReject.new()
     end
 
     assert(tag is lexer.TagToken)
     if tag.name == "br" then
         if #tag.arguments > 0 then
-            return parser.makeFail(lexer.makeProblem("too many argument in br tag", tag.position))
+            return parser.ParseFail.new(lexer.Problem.new("too many argument in br tag", tag.position))
         end
-        return parser.makeAccept(parser.makeNewline(tag.position), startIndex + 1, {}, {})
+        return parser.ParseAccept.new(parser.NewlineNode.new(tag.position), startIndex + 1, {}, {})
     end
 
-    return parser.makeReject()
+    return parser.ParseReject.new()
 end
 
 local function parseVoidTag(tag: lexer.TagToken, startIndex: integer): parser.ParseResult<parser.VoidTagNode>
@@ -193,29 +237,29 @@ local function parseVoidTag(tag: lexer.TagToken, startIndex: integer): parser.Pa
         end
     end
 
-    return parser.makeReject()
+    return parser.ParseReject.new()
 end
 
 local function parseResetTag(tag: lexer.TagToken, startIndex: integer): parser.ParseResult<boolean>
     local isStartTag = tag is lexer.TagToken and not tag.isEndTag
 
     if not isStartTag then
-        return parser.makeReject()
+        return parser.ParseReject.new()
     end
 
     assert(tag is lexer.TagToken)
     if tag.name == "reset" then
         if #tag.arguments > 0 then
-            return parser.makeFail(lexer.makeProblem("too many argument in reset tag", tag.position))
+            return parser.ParseFail.new(lexer.Problem.new("too many argument in reset tag", tag.position))
         end
         local warnings = {}
         local strictProblems = {
-            lexer.makeProblem("reset tag is not allowed", tag.position)
+            lexer.Problem.new("reset tag is not allowed", tag.position)
         }
-        return parser.makeAccept(true, startIndex + 1, warnings, strictProblems)
+        return parser.ParseAccept.new(true, startIndex + 1, warnings, strictProblems)
     end
 
-    return parser.makeReject()
+    return parser.ParseReject.new()
 end
 
 local function toNamedColor(color: string): parser.NamedColor | nil
@@ -245,15 +289,15 @@ local function parseOpenNamedColorTag(tag: lexer.TagToken, startIndex: integer):
     local color = toNamedColor(tag.name)
 
     if not color then
-        return parser.makeReject()
+        return parser.ParseReject.new()
     end
 
     assert(color is parser.NamedColor)
     if #tag.arguments > 0 then
-        return parser.makeFail(lexer.makeProblem("too many argument in named color tag", tag.position))
+        return parser.ParseFail.new(lexer.Problem.new("too many argument in named color tag", tag.position))
     end
 
-    return parser.makeAccept(parser.makeNamedColor(tag.position, color, {}), startIndex + 1, {}, {})
+    return parser.ParseAccept.new(parser.NamedColorNode.new(tag.position, color, {}), startIndex + 1, {}, {})
 end
 
 local function toHexColor(color: string): string | nil
@@ -271,44 +315,44 @@ local function parseOpenHexColorTag(tag: lexer.TagToken, startIndex: integer): p
     local hexColor = toHexColor(tag.name)
 
     if not hexColor then
-        return parser.makeReject()
+        return parser.ParseReject.new()
     end
 
     if #tag.arguments > 0 then
-        return parser.makeFail(lexer.makeProblem("too many argument in hex color tag", tag.position))
+        return parser.ParseFail.new(lexer.Problem.new("too many argument in hex color tag", tag.position))
     end
 
-    return parser.makeAccept(parser.makeHexColor(tag.position, hexColor, {}), startIndex + 1, {}, {})
+    return parser.ParseAccept.new(parser.HexColorNode.new(tag.position, hexColor, {}), startIndex + 1, {}, {})
 end
 
 local function parseOpenColorTag(tag: lexer.TagToken, startIndex: integer): parser.ParseResult<parser.NormalTagNode>
     local isColorTag = tag.name == "color"
 
     if not isColorTag then
-        return parser.makeReject()
+        return parser.ParseReject.new()
     end
 
     local colorArg = tag.arguments[1]
 
     if not colorArg then
-        return parser.makeFail(lexer.makeProblem("not enough argument in color tag", tag.position))
+        return parser.ParseFail.new(lexer.Problem.new("not enough argument in color tag", tag.position))
     end
 
     local namedColor = toNamedColor(colorArg.content)
     local hexColor = toHexColor(colorArg.content)
 
     if not (namedColor or hexColor) then
-        return parser.makeFail(lexer.makeProblem("invalid color name " .. colorArg.content .. " in color tag", tag.position))
+        return parser.ParseFail.new(lexer.Problem.new("invalid color name " .. colorArg.content .. " in color tag", tag.position))
     end
 
     if #tag.arguments > 1 then
-        return parser.makeFail(lexer.makeProblem("too many argument in color tag", tag.position))
+        return parser.ParseFail.new(lexer.Problem.new("too many argument in color tag", tag.position))
     end
 
     if namedColor then
-        return parser.makeAccept(parser.makeNamedColor(tag.position, namedColor, {}), startIndex + 1, {}, {})
+        return parser.ParseAccept.new(parser.NamedColorNode.new(tag.position, namedColor, {}), startIndex + 1, {}, {})
     else
-        return parser.makeAccept(parser.makeHexColor(tag.position, hexColor, {}), startIndex + 1, {}, {})
+        return parser.ParseAccept.new(parser.HexColorNode.new(tag.position, hexColor, {}), startIndex + 1, {}, {})
     end
 end
 
@@ -329,43 +373,43 @@ local function parseOpenDecorationTag(tag: lexer.TagToken, startIndex: integer):
     local decoration = validDecorations[tag.name]
 
     if not decoration then
-        return parser.makeReject()
+        return parser.ParseReject.new()
     end
 
     if #tag.arguments > 0 then
-        return parser.makeFail(lexer.makeProblem("too many argument in " .. decoration .. " tag", tag.position))
+        return parser.ParseFail.new(lexer.Problem.new("too many argument in " .. decoration .. " tag", tag.position))
     end
 
-    return parser.makeAccept(parser.makeDecoration(tag.position, decoration, {}), startIndex + 1, {}, {})
+    return parser.ParseAccept.new(parser.DecorationNode.new(tag.position, decoration, {}), startIndex + 1, {}, {})
 end
 
 local function parseOpenHoverTag(tag: lexer.TagToken, startIndex: integer): parser.ParseResult<parser.NormalTagNode>
     local isHoverTag = tag.name == "hover"
 
     if not isHoverTag then
-        return parser.makeReject()
+        return parser.ParseReject.new()
     end
 
     local actionArg = tag.arguments[1]
 
     if not actionArg then
-        return parser.makeFail(lexer.makeProblem("not enough argument for hover tag", tag.position))
+        return parser.ParseFail.new(lexer.Problem.new("not enough argument for hover tag", tag.position))
     end
 
     if actionArg.content == "show_text" then
         local textArg = tag.arguments[2]
 
         if not textArg then
-            return parser.makeFail(lexer.makeProblem("not enough argument for hover:show_text tag", tag.position))
+            return parser.ParseFail.new(lexer.Problem.new("not enough argument for hover:show_text tag", tag.position))
         end
         if #tag.arguments > 2 then
-            return parser.makeFail(lexer.makeProblem("too many argument for hover:show_text tag", tag.position))
+            return parser.ParseFail.new(lexer.Problem.new("too many argument for hover:show_text tag", tag.position))
         end
 
-        return parser.makeAccept(parser.makeShowText(tag.position, textArg.content, textArg.position, textArg.originalString, {}), startIndex + 1, {}, {})
+        return parser.ParseAccept.new(parser.ShowTextNode.new(tag.position, textArg.content, textArg.position, textArg.originalString, {}), startIndex + 1, {}, {})
     end
 
-    return parser.makeFail(lexer.makeProblem("invalid hover tag action", tag.position))
+    return parser.ParseFail.new(lexer.Problem.new("invalid hover tag action", tag.position))
 end
 
 local interface ComponentsResult
@@ -378,16 +422,24 @@ local interface NormalTagNodeResult
     unhandledTag: UnhandledTag  -- The end tag is guaranteed to have a matching start tag in the currently opened tags
 end
 
-local type UnhandledTag = EndTag | ResetTag | nil
-
-local interface EndTag
-    is lexer.TagToken
-    where self.isEndTag == true
+local record UnhandledTag
+    tagToken: lexer.TagToken
+    isEndTag: boolean
+    isResetTag: boolean
 end
 
-local interface ResetTag
-    is lexer.TagToken
-    where self.name == "reset"
+function UnhandledTag.new(tagToken: lexer.TagToken): UnhandledTag
+    local self: UnhandledTag = setmetatable({}, { __index = UnhandledTag })
+    self.tagToken = tagToken
+    self.isEndTag = false
+    self.isResetTag = false
+    if tagToken.name == "reset" then
+        self.isResetTag = true
+        return self
+    end
+    assert(tagToken.isEndTag == true)
+    self.isEndTag = true
+    return self
 end
 
 local function someoneCanConsumeEndTag(openedTags: {lexer.TagToken}, closeTag: lexer.TagToken): boolean
@@ -407,7 +459,7 @@ function parseNormalTag(tokens: {lexer.Token}, openedTags: {lexer.TagToken}, sta
     local isStartTag = startTag is lexer.TagToken and not startTag.isEndTag
 
     if not isStartTag then
-        return parser.makeReject()
+        return parser.ParseReject.new()
     end
 
     local warnings: {lexer.Problem} = {}
@@ -441,7 +493,7 @@ function parseNormalTag(tokens: {lexer.Token}, openedTags: {lexer.TagToken}, sta
     end
 
     if foundNode == nil then
-        return parser.makeReject()
+        return parser.ParseReject.new()
     end
     local resultNode = foundNode as parser.NormalTagNode
 
@@ -454,29 +506,29 @@ function parseNormalTag(tokens: {lexer.Token}, openedTags: {lexer.TagToken}, sta
     local toPropagateTag = false
     if unhandledTag == nil then
         -- non-strict mode: assume tag is closed even though it is not
-        strictProblems[#strictProblems + 1] = lexer.makeProblem("tag " .. startTag.name .. " does not have an end tag", startTag.position)
+        strictProblems[#strictProblems + 1] = lexer.Problem.new("tag " .. startTag.name .. " does not have an end tag", startTag.position)
         toPropagateTag = false
 
-    elseif unhandledTag is EndTag then
+    elseif unhandledTag.isEndTag then
         assert(startTag is lexer.TagToken)
-        if tagMatches(startTag, unhandledTag) then
+        if tagMatches(startTag, unhandledTag.tagToken) then
             -- valid
             toPropagateTag = false
         else
             -- non-strict mode: assume tag is closed and propagate unhandled tag
-            strictProblems[#strictProblems + 1] = lexer.makeProblem("tag " .. startTag.name .. " does not have an end tag", startTag.position)
+            strictProblems[#strictProblems + 1] = lexer.Problem.new("tag " .. startTag.name .. " does not have an end tag", startTag.position)
             toPropagateTag = true
         end
 
     else
-        assert(unhandledTag is ResetTag)
+        assert(unhandledTag.isResetTag)
         -- non-strict mode: end tag and propagate reset tag
         toPropagateTag = true
     end
 
     openedTags[#openedTags] = nil
     resultNode.components = result.result.components
-    return parser.makeAccept({ node = resultNode, unhandledTag = toPropagateTag and unhandledTag or nil }, result.nextIndex, warnings, strictProblems)
+    return parser.ParseAccept.new({ node = resultNode, unhandledTag = toPropagateTag and unhandledTag or nil }, result.nextIndex, warnings, strictProblems)
 end
 
 function parseComponentsUntilCloseOrReset(tokens: {lexer.Token}, openedTags: {lexer.TagToken}, startIndex: integer): parser.ParseAccept<ComponentsResult>
@@ -505,24 +557,24 @@ function parseComponentsUntilCloseOrReset(tokens: {lexer.Token}, openedTags: {le
         end
 
         if not moveOn and token is lexer.PlainTextToken then
-            acceptComponentAndMoveOn(parser.makePlainText(token.position, token.content), index + 1)
+            acceptComponentAndMoveOn(parser.PlainTextNode.new(token.position, token.content), index + 1)
         end
 
         if not moveOn and token is lexer.NewlineToken then
-            acceptComponentAndMoveOn(parser.makeNewline(token.position), index + 1)
+            acceptComponentAndMoveOn(parser.NewlineNode.new(token.position), index + 1)
         end
 
-        if not moveOn and token is lexer.TagToken and token is EndTag then
+        if not moveOn and token is lexer.TagToken and token.isEndTag then
             local closeTagIsValid = someoneCanConsumeEndTag(openedTags, token)
 
             if closeTagIsValid then
                 local toConsumeEndTagNow = 1
-                return parser.makeAccept({ components = components, unhandledTag = token }, index + toConsumeEndTagNow, warnings, strictProblems)
+                return parser.ParseAccept.new({ components = components, unhandledTag = UnhandledTag.new(token) }, index + toConsumeEndTagNow, warnings, strictProblems)
 
             else
                 -- non-strict mode: display as plain text even though end tag is invalid
-                warnings[#warnings + 1] = lexer.makeProblem("invalid end tag " .. token.name, token.position)
-                acceptComponentAndMoveOn(parser.makePlainText(token.position, token.originalString), index + 1)
+                warnings[#warnings + 1] = lexer.Problem.new("invalid end tag " .. token.name, token.position)
+                acceptComponentAndMoveOn(parser.PlainTextNode.new(token.position, token.originalString), index + 1)
             end
         end
 
@@ -530,15 +582,15 @@ function parseComponentsUntilCloseOrReset(tokens: {lexer.Token}, openedTags: {le
             local resetTagResult = parseResetTag(token, index)
 
             if resetTagResult is parser.ParseAccept<boolean> then
-                assert(token is ResetTag)
+                assert(token.name == "reset")
                 addWarningsAndProblems(resetTagResult)
                 local toConsumeResetTagNow = 1
-                return parser.makeAccept({ components = components, unhandledTag = token }, index + toConsumeResetTagNow, warnings, strictProblems)
+                return parser.ParseAccept.new({ components = components, unhandledTag = UnhandledTag.new(token) }, index + toConsumeResetTagNow, warnings, strictProblems)
 
             elseif resetTagResult is parser.ParseFail then
                 -- non-strict mode: display as plain text even though reset tag is invalid
                 warnings[#warnings + 1] = resetTagResult.failure
-                acceptComponentAndMoveOn(parser.makePlainText(token.position, token.originalString), index + 1)
+                acceptComponentAndMoveOn(parser.PlainTextNode.new(token.position, token.originalString), index + 1)
 
             else
                 assert(resetTagResult is parser.ParseReject)
@@ -555,7 +607,7 @@ function parseComponentsUntilCloseOrReset(tokens: {lexer.Token}, openedTags: {le
             elseif voidTagResult is parser.ParseFail then
                 -- non-strict mode: display as plain text even though void tag is invalid
                 warnings[#warnings + 1] = voidTagResult.failure
-                acceptComponentAndMoveOn(parser.makePlainText(token.position, token.originalString), index + 1)
+                acceptComponentAndMoveOn(parser.PlainTextNode.new(token.position, token.originalString), index + 1)
 
             else
                 assert(voidTagResult is parser.ParseReject)
@@ -572,13 +624,13 @@ function parseComponentsUntilCloseOrReset(tokens: {lexer.Token}, openedTags: {le
                 local unhandledTag = normalTagResult.result.unhandledTag
                 local hasPropagatedUnhandledTag = unhandledTag ~= nil
                 if hasPropagatedUnhandledTag then
-                    return parser.makeAccept({ components = components, unhandledTag = unhandledTag }, normalTagResult.nextIndex, warnings, strictProblems)
+                    return parser.ParseAccept.new({ components = components, unhandledTag = unhandledTag }, normalTagResult.nextIndex, warnings, strictProblems)
                 end
 
             elseif normalTagResult is parser.ParseFail then
                 -- non-strict mode: display as plain text even though normal tag is invalid
                 warnings[#warnings + 1] = normalTagResult.failure
-                acceptComponentAndMoveOn(parser.makePlainText(token.position, token.originalString), index + 1)
+                acceptComponentAndMoveOn(parser.PlainTextNode.new(token.position, token.originalString), index + 1)
 
             else
                 assert(normalTagResult is parser.ParseReject)
@@ -588,13 +640,13 @@ function parseComponentsUntilCloseOrReset(tokens: {lexer.Token}, openedTags: {le
         if not moveOn then
             assert(token is lexer.TagToken)
             -- non-strict mode: display as plain text even though tag is invalid
-            warnings[#warnings + 1] = lexer.makeProblem("unknown tag " .. token.name, token.position)
-            acceptComponentAndMoveOn(parser.makePlainText(token.position, token.originalString), index + 1)
+            warnings[#warnings + 1] = lexer.Problem.new("unknown tag " .. token.name, token.position)
+            acceptComponentAndMoveOn(parser.PlainTextNode.new(token.position, token.originalString), index + 1)
         end
     end
 
     -- reached end of file
-    return parser.makeAccept({ components = components, unhandledTag = nil }, index, warnings, strictProblems)
+    return parser.ParseAccept.new({ components = components, unhandledTag = nil }, index, warnings, strictProblems)
 end
 
 function parser.parse(tokens: {lexer.Token}): parser.ParseAccept<parser.MinecraftTextNode>
@@ -614,7 +666,7 @@ function parser.parse(tokens: {lexer.Token}): parser.ParseAccept<parser.Minecraf
     end
 
     if #tokens < 1 then
-        return parser.makeAccept(parser.makeMinecraftText(lexer.makePosition(1, 1, 1), components), index, warnings, strictProblems)
+        return parser.ParseAccept.new(parser.MinecraftTextNode.new(lexer.Position.new(1, 1, 1), components), index, warnings, strictProblems)
     end
 
     while index <= #tokens do
@@ -630,19 +682,19 @@ function parser.parse(tokens: {lexer.Token}): parser.ParseAccept<parser.Minecraf
         if unhandledTag == nil then
             -- valid
 
-        elseif unhandledTag is EndTag then
+        elseif unhandledTag.isEndTag then
             -- non-strict mode: write invalid tag as plain text
-            components[#components + 1] = parser.makePlainText(unhandledTag.position, unhandledTag.originalString)
+            components[#components + 1] = parser.PlainTextNode.new(unhandledTag.tagToken.position, unhandledTag.tagToken.originalString)
 
         else
-            assert(unhandledTag is ResetTag)
+            assert(unhandledTag.isResetTag)
             -- valid
         end
 
         index = result.nextIndex
     end
 
-    return parser.makeAccept(parser.makeMinecraftText(tokens[1].position, components), index, warnings, strictProblems)
+    return parser.ParseAccept.new(parser.MinecraftTextNode.new(tokens[1].position, components), index, warnings, strictProblems)
 end
 
 return parser

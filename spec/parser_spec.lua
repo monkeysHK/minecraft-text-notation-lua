@@ -2,19 +2,19 @@ local lexer = require("lexer")
 local parser = require("parser")
 
 local function plainTextToken(position, content)
-    return lexer.makePlainText(position, content)
+    return lexer.PlainTextToken.new(position, content)
 end
 
 local function newlineToken(position)
-    return lexer.makeNewline(position)
+    return lexer.NewlineToken.new(position)
 end
 
 local function tagToken(position, name, arguments, isEndTag, originalString)
-    return lexer.makeTag(position, name, arguments, isEndTag, originalString)
+    return lexer.TagToken.new(position, name, arguments, isEndTag, originalString)
 end
 
 local function tagSegment(position, content, originalString)
-    return lexer.makeTagSegment(position, content, originalString)
+    return lexer.TagSegment.new(position, content, originalString)
 end
 
 local function extractResult(parseResult)
@@ -34,43 +34,43 @@ local function expectNoStrictProblem(parseResult)
 end
 
 local function position(index, row, col)
-    return lexer.makePosition(index, row, col)
+    return lexer.Position.new(index, row, col)
 end
 
 local function lineonepos(index)
-    return lexer.makePosition(index, 1, index)
+    return lexer.Position.new(index, 1, index)
 end
 
 local function problem(message, position)
-    return lexer.makeProblem(message, position)
+    return lexer.Problem.new(message, position)
 end
 
 local function minecraftText(position, components)
-    return parser.makeMinecraftText(position, components)
+    return parser.MinecraftTextNode.new(position, components)
 end
 
 local function namedColor(position, color, components)
-    return parser.makeNamedColor(position, color, components)
+    return parser.NamedColorNode.new(position, color, components)
 end
 
 local function hexColor(position, color, components)
-    return parser.makeHexColor(position, color, components)
+    return parser.HexColorNode.new(position, color, components)
 end
 
 local function decoration(position, decorationName, components)
-    return parser.makeDecoration(position, decorationName, components)
+    return parser.DecorationNode.new(position, decorationName, components)
 end
 
 local function showText(position, text, textPosition, originalString, components)
-    return parser.makeShowText(position, text, textPosition, originalString, components)
+    return parser.ShowTextNode.new(position, text, textPosition, originalString, components)
 end
 
 local function newline(position)
-    return parser.makeNewline(position)
+    return parser.NewlineNode.new(position)
 end
 
 local function plainText(position, content)
-    return parser.makePlainText(position, content)
+    return parser.PlainTextNode.new(position, content)
 end
 
 describe("plain text", function()
