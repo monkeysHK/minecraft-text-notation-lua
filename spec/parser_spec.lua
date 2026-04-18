@@ -1,4 +1,6 @@
+local common = require("common")
 local lexer = require("lexer")
+local parsetree = require("parsetree")
 local parser = require("parser")
 
 local function plainTextToken(position, content)
@@ -34,43 +36,43 @@ local function expectNoStrictProblem(parseResult)
 end
 
 local function position(index, row, col)
-    return lexer.Position.new(index, row, col)
+    return common.Position.new(index, row, col)
 end
 
 local function lineonepos(index)
-    return lexer.Position.new(index, 1, index)
+    return common.Position.new(index, 1, index)
 end
 
 local function problem(message, position)
-    return lexer.Problem.new(message, position)
+    return common.Problem.new(message, position)
 end
 
 local function minecraftText(position, components)
-    return parser.MinecraftTextNode.new(position, components)
+    return parsetree.MinecraftTextNode.new(position, components)
 end
 
 local function namedColor(position, color, components)
-    return parser.NamedColorNode.new(position, color, components)
+    return parsetree.NamedColorNode.new(position, color, components)
 end
 
 local function hexColor(position, color, components)
-    return parser.HexColorNode.new(position, color, components)
+    return parsetree.HexColorNode.new(position, color, components)
 end
 
 local function decoration(position, decorationName, components)
-    return parser.DecorationNode.new(position, decorationName, components)
+    return parsetree.DecorationNode.new(position, decorationName, components)
 end
 
-local function showText(position, text, textPosition, originalString, components)
-    return parser.ShowTextNode.new(position, text, textPosition, originalString, components)
+local function showText(position, minecraftText, components)
+    return parsetree.ShowTextNode.new(position, minecraftText, components)
 end
 
 local function newline(position)
-    return parser.NewlineNode.new(position)
+    return parsetree.NewlineNode.new(position)
 end
 
 local function plainText(position, content)
-    return parser.PlainTextNode.new(position, content)
+    return parsetree.PlainTextNode.new(position, content)
 end
 
 describe("plain text", function()
@@ -107,6 +109,7 @@ end)
 describe("br tag", function()
 
     it("expect br tag can be parsed", function()
+        -- test case: <br>
         local output = parser.parse({tagToken(lineonepos(1), "br", {}, false, "<br>")})
         local result = extractResult(output)
         expectNoWarning(output)
@@ -116,6 +119,7 @@ describe("br tag", function()
     end)
 
     it("expect br tag with >= 1 args to be invalid", function()
+        -- test case: <br:arg>
         local output = parser.parse({tagToken(lineonepos(1), "br", {tagSegment(lineonepos(5), "arg", "arg")}, false, "<br:arg>")})
         local result, warnings = extractResult(output)
 
@@ -139,6 +143,7 @@ describe("named color tag", function()
     end)
 
     it("expect named color tags with >= 1 args to be invalid", function()
+        -- test case: <black:arg>
         local output = parser.parse({tagToken(lineonepos(1), "black", {tagSegment(lineonepos(8), "arg", "arg")}, false, "<black:arg>")})
         local result, warnings = extractResult(output)
 
@@ -151,6 +156,7 @@ end)
 describe("hex color tag", function()
 
     it("expect hex color tag can be parsed", function()
+        -- test case: <#0123abc>
         local output = parser.parse({tagToken(lineonepos(1), "#012abc", {}, false, "<#012abc>")})
         local result = extractResult(output)
         expectNoWarning(output)
@@ -159,6 +165,7 @@ describe("hex color tag", function()
     end)
 
     it("expect hex color tag with >= 1 args to be invalid", function()
+        -- test case: <#abcdef:arg>
         local output = parser.parse({tagToken(lineonepos(1), "#abcdef", {tagSegment(lineonepos(10), "arg", "arg")}, false, "<#abcdef:arg>")})
         local result, warnings = extractResult(output)
 
@@ -183,6 +190,7 @@ end)
 describe("color tag", function()
 
     it("expect color tag with named color can be parsed", function()
+        -- test case: <color:black>
         local output = parser.parse({tagToken(lineonepos(1), "color", {tagSegment(lineonepos(8), "black", "black")}, false, "<color:black>")})
         local result = extractResult(output)
         expectNoWarning(output)
@@ -191,6 +199,7 @@ describe("color tag", function()
     end)
 
     it("expect color tag with hex color can be parsed", function()
+        -- test case: <color:#123def>
         local output = parser.parse({tagToken(lineonepos(1), "color", {tagSegment(lineonepos(8), "#123def", false)}, false, "<color:#123def>")})
         local result = extractResult(output)
         expectNoWarning(output)
@@ -199,6 +208,7 @@ describe("color tag", function()
     end)
 
     it("expect color tag with unknown color to be invalid", function()
+        -- test case: <color:unknown>
         local output = parser.parse({tagToken(lineonepos(1), "color", {tagSegment(lineonepos(8), "unknown", "unknown")}, false, "<color:unknown>")})
         local result, warnings = extractResult(output)
 
@@ -207,6 +217,7 @@ describe("color tag", function()
     end)
 
     it("expect color tag with 0 args to be invalid", function()
+        -- test case: <color>
         local output = parser.parse({tagToken(lineonepos(1), "color", {}, false, "<color>")})
         local result, warnings = extractResult(output)
 
@@ -215,6 +226,7 @@ describe("color tag", function()
     end)
 
     it("expect color tag with >= 2 args to be invalid", function()
+        -- test case: <color:#123def:arg2>
         local output = parser.parse({tagToken(lineonepos(1), "color", {tagSegment(lineonepos(8), "#123def", "#123def"), tagSegment(lineonepos(16), "arg2", "arg2")}, false, "<color:#123def:arg2>")})
         local result, warnings = extractResult(output)
 
@@ -250,6 +262,7 @@ describe("decoration tag", function()
     end)
 
     it("expect decoration tag with >= 1 args to be invalid", function()
+        -- test case: <bold:arg1>
         local output = parser.parse({tagToken(lineonepos(1), "bold", {tagSegment(lineonepos(7), "arg1", "arg1")}, false, "<bold:arg1>")})
         local result, warnings = extractResult(output)
 
@@ -262,6 +275,7 @@ end)
 describe("hover tag", function()
 
     it("expect hover tag with <= 1 args to be invalid", function ()
+        -- test case: <hover>
         local output = parser.parse({tagToken(lineonepos(1), "hover", {}, false, "<hover>")})
         local result, warnings = extractResult(output)
 
@@ -270,6 +284,7 @@ describe("hover tag", function()
     end)
 
     it("expect unknown hover tag to be invalid", function ()
+        -- test case: <hover:unknown>
         local output = parser.parse({tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "unknown", "unknown")}, false, "<hover:unknown>")})
         local result, warnings = extractResult(output)
 
@@ -280,22 +295,25 @@ describe("hover tag", function()
     describe("show_text tag", function()
 
         it("expect empty text can be parsed", function()
+            -- test case: <hover:show_text:>
             local output = parser.parse({tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "", "")}, false, "<hover:show_text:>")})
             local result = extractResult(output)
             expectNoWarning(output)
 
-            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), "", lineonepos(18), "", {})}), result)
+            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), minecraftText(lineonepos(18), {}), {})}), result)
         end)
 
         it("expect non-empty text can be parsed", function()
+            -- test case: <hover:show_text:'some text'>
             local output = parser.parse({tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "some text", "'some text'")}, false, "<hover:show_text:'some text'>")})
             local result = extractResult(output)
             expectNoWarning(output)
 
-            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), "some text", lineonepos(18), "'some text'", {})}), result)
+            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), minecraftText(lineonepos(19), {plainText(lineonepos(19), "some text")}), {})}), result)
         end)
 
         it("expect show text tag with <= 1 args to be invalid", function()
+            -- test case: <hover:show_text>
             local output = parser.parse({tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text")}, false, "<hover:show_text>")})
             local result, warnings = extractResult(output)
 
@@ -304,6 +322,7 @@ describe("hover tag", function()
         end)
 
         it("expect show text tag with >= 3 args to be invalid", function()
+            -- test case: <hover:show_text:text:arg3>
             local output = parser.parse({tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "text", "text"), tagSegment(lineonepos(23), "arg3", "arg3")}, false, "<hover:show_text:text:arg3>")})
             local result, warnings = extractResult(output)
 
@@ -318,6 +337,7 @@ end)
 describe("reset tag", function()
 
     it("expect reset tag to not produce node", function()
+        -- test case: <reset>
         local output = parser.parse({ tagToken(lineonepos(1), "reset", {}, false, "<reset>") })
         local result, warnings, _ = extractResult(output)
 
@@ -326,6 +346,7 @@ describe("reset tag", function()
     end)
 
     it("expect reset tag to be disallowed in strict mode", function()
+        -- test case: <reset>
         local output = parser.parse({ tagToken(lineonepos(1), "reset", {}, false, "<reset>") })
         local _, _, strictProblems = extractResult(output)
 
@@ -333,6 +354,7 @@ describe("reset tag", function()
     end)
 
     it("expect reset tag with >= 1 args to be invalid", function()
+        -- test case: <reset:arg>
         local output = parser.parse({ tagToken(lineonepos(1), "reset", {tagSegment(lineonepos(8), "arg", "arg")}, false, "<reset:arg>") })
         local result, warnings, _ = extractResult(output)
 
@@ -345,6 +367,7 @@ end)
 describe("tag tree", function()
 
     it("expect unknown tag to be invalid", function()
+        -- test case: <unknown>
         local output = parser.parse({ tagToken(lineonepos(1), "unknown", {}, false, "<unknown>"), })
         local _, warnings = extractResult(output)
 
@@ -353,6 +376,7 @@ describe("tag tree", function()
     end)
 
     it("expect normal tag can have components", function()
+        -- test case: <b>some text</b>
         local output = parser.parse({
             tagToken(lineonepos(1), "b", {}, false, "<b>"),
             plainTextToken(lineonepos(1), "some text"),
@@ -366,6 +390,7 @@ describe("tag tree", function()
     end)
 
     it("expect invalid end tag to display as plain text", function()
+        -- test case: </bad>
         local output = parser.parse({
             tagToken(lineonepos(1), "bad", {}, true, "</bad>")
         })
@@ -376,6 +401,7 @@ describe("tag tree", function()
     end)
 
     it("expect unmatched end tag to display as plain text", function()
+        -- test case: <b>some text</i>
         local output = parser.parse({
             tagToken(lineonepos(1), "b", {}, false, "<b>"),
             plainTextToken(lineonepos(4), "some text"),
@@ -388,6 +414,7 @@ describe("tag tree", function()
     end)
 
     it("expect closing void tag is invalid", function()
+        -- test case: <br></br>
         local output = parser.parse({
             tagToken(lineonepos(1), "br", {}, false, "<br>"),
             tagToken(lineonepos(5), "br", {}, true, "</br>")
@@ -401,6 +428,7 @@ describe("tag tree", function()
     describe("tag matching and resetting", function()
 
         it("expect end tag can be paired with matching start tag", function()
+            -- test case: <b></b>
             local output = parser.parse({
                 tagToken(lineonepos(1), "b", {}, false, "<b>"),
                 tagToken(lineonepos(4), "b", {}, true, "</b>")
@@ -413,28 +441,31 @@ describe("tag tree", function()
         end)
 
         it("expect tags with different tag name do not match", function()
+            -- test case: <b></i>
             local output = parser.parse({
-                tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "", "")}, false, "<hover:show_text:>"),
-                tagToken(lineonepos(19), "i", {}, true, "</i>")
+                tagToken(lineonepos(1), "b", {}, false, "<b>"),
+                tagToken(lineonepos(4), "i", {}, true, "</i>")
             })
             local result, warnings = extractResult(output)
 
-            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), "", lineonepos(18), "", {plainText(lineonepos(19), "</i>")})}), result)
-            assert.are.same({ problem("invalid end tag i", lineonepos(19)) }, warnings)
+            assert.are.same(minecraftText(lineonepos(1), {decoration(lineonepos(1), "bold", {plainText(lineonepos(4), "</i>")})}), result)
+            assert.are.same({ problem("invalid end tag i", lineonepos(4)) }, warnings)
         end)
 
         it("expect tags with different tag arguments do not match", function()
+            -- test case: <hover:show_text:a></hover:show_text:b>
             local output = parser.parse({
                 tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "a", "a")}, false, "<hover:show_text:a>"),
                 tagToken(lineonepos(20), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "b", "b")}, true, "</hover:show_text:b>")
             })
             local result, warnings = extractResult(output)
 
-            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), "a", lineonepos(18), "a", {plainText(lineonepos(20), "</hover:show_text:b>")})}), result)
+            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), minecraftText(lineonepos(18), {plainText(lineonepos(18), "a")}), {plainText(lineonepos(20), "</hover:show_text:b>")})}), result)
             assert.are.same({ problem("invalid end tag hover", lineonepos(20)) }, warnings)
         end)
 
         it("expect tags with same tag arguments match", function()
+            -- test case: <hover:show_text:a>some text</hover_show_text:'a'>
             local output = parser.parse({
                 tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "a", "a")}, false, "<hover:show_text:a>"),
                 plainTextToken(lineonepos(20), "some text"),
@@ -444,10 +475,11 @@ describe("tag tree", function()
             expectNoWarning(output)
             expectNoStrictProblem(output)
 
-            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), "a", lineonepos(18), "a", {plainText(lineonepos(20), "some text")})}), result)
+            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), minecraftText(lineonepos(18), {plainText(lineonepos(18), "a")}), {plainText(lineonepos(20), "some text")})}), result)
         end)
 
         it("expect end tag with some pecified arguments to match start tag", function()
+            -- test case: <hover:show_text:a>some text</hover:show_text>
             local output = parser.parse({
                 tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "a", "a")}, false, "<hover:show_text:a>"),
                 plainTextToken(lineonepos(20), "some text"),
@@ -457,10 +489,11 @@ describe("tag tree", function()
             expectNoWarning(output)
             expectNoStrictProblem(output)
 
-            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), "a", lineonepos(18), "a", {plainText(lineonepos(20), "some text")})}), result)
+            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), minecraftText(lineonepos(18), {plainText(lineonepos(18), "a")}), {plainText(lineonepos(20), "some text")})}), result)
         end)
 
         it("expect end tag with no pecified arguments to match start tag", function()
+            -- test case: <hover:show_text:a>some text</hover>
             local output = parser.parse({
                 tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "a", "a")}, false, "<hover:show_text:a>"),
                 plainTextToken(lineonepos(20), "some text"),
@@ -470,10 +503,11 @@ describe("tag tree", function()
             expectNoWarning(output)
             expectNoStrictProblem(output)
 
-            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), "a", lineonepos(18), "a", {plainText(lineonepos(20), "some text")})}), result)
+            assert.are.same(minecraftText(lineonepos(1), {showText(lineonepos(1), minecraftText(lineonepos(18), {plainText(lineonepos(18), "a")}), {plainText(lineonepos(20), "some text")})}), result)
         end)
 
         it("expect end tag to close all unclosed tags between itself and the closest previous unclosed tag", function()
+            -- test case: <b><i><u>some text</i>some text
             local output = parser.parse({
                 tagToken(lineonepos(1), "b", {}, false, "<b>"),
                 tagToken(lineonepos(4), "i", {}, false, "<i>"),
@@ -498,6 +532,7 @@ describe("tag tree", function()
         end)
 
         it("expect the reset tag to close all unclosed start tags between itself and the beginning of the sequence", function()
+            -- test case: <b><i>some text<reset><u>some text
             local output = parser.parse({
                 tagToken(lineonepos(1), "b", {}, false, "<b>"),
                 tagToken(lineonepos(4), "i", {}, false, "<i>"),
@@ -522,6 +557,7 @@ describe("tag tree", function()
         end)
 
         it("expect tags unclosed at the end of string is invalid in strict mode", function()
+            -- test case: <b>
             local output = parser.parse({
                 tagToken(lineonepos(1), "b", {}, false, "<b>"),
             })
@@ -531,6 +567,7 @@ describe("tag tree", function()
         end)
 
         it("expect tags closed in the wrong order is invalid in strict mode", function()
+            -- test case: <b><i></b>
             local output = parser.parse({
                 tagToken(lineonepos(1), "b", {}, false, "<b>"),
                 tagToken(lineonepos(4), "i", {}, false, "<i>"),
@@ -546,6 +583,8 @@ describe("tag tree", function()
 end)
 
 it("expect nodes have correct line and col numbers", function()
+    -- test case: Line 1
+    -- \\
     local output = parser.parse({
         plainTextToken(lineonepos(1), "Line 1"),
         newlineToken(lineonepos(7)),
@@ -560,5 +599,38 @@ it("expect nodes have correct line and col numbers", function()
         newline(lineonepos(7)),
         plainText(position(8, 2, 1), "\\"),
     }), result)
+end)
+
+describe("warnings and strict problems propagation", function()
+
+    it("expect warnings are propagated", function()
+        -- test case: <hover:show_text:'<unknown>'><bad>
+        local output = parser.parse({
+            tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "<unknown>", "'<unknown>'")}, false, "<hover:show_text:'<unknown>'>"),
+            tagToken(lineonepos(30), "bad", {}, false, "<bad>"),
+        })
+        local _, warnings, _ = extractResult(output)
+
+        assert.are.same({
+            problem("unknown tag unknown", lineonepos(19)),
+            problem("unknown tag bad", lineonepos(30)),
+        }, warnings)
+
+    end)
+
+    it("expect strict problems are propagated", function()
+        -- test case: <hover:show_text:'<yellow>'>
+        local output = parser.parse({
+            tagToken(lineonepos(1), "hover", {tagSegment(lineonepos(8), "show_text", "show_text"), tagSegment(lineonepos(18), "<yellow>", "'<yellow>'")}, false, "<hover:show_text:'<yellow>'>"),
+        })
+        local _, _, strictProblems = extractResult(output)
+
+        assert.are.same({
+            problem("tag yellow does not have an end tag", lineonepos(19)),
+            problem("tag hover does not have an end tag", lineonepos(1)),
+        }, strictProblems)
+
+    end)
+
 end)
 

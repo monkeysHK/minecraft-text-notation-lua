@@ -7,7 +7,8 @@ This is a parser for the [Minecraft Text Notation] that can be used on wikis of 
 To generate Wikitext from Minecraft Text Notation:
 
 ```lua
-codegen.compile(Text, Options)
+local mctext = require("mctext")
+mctext.compile(Text, Options)
 ```
 
 Text is a string written in Minecraft Text Notation.

@@ -1,28 +1,31 @@
+local common = require("common")
 local lexer = require("lexer")
 
-local function extractResult(tokenizeResult)
-    assert.equal("TokenizeAccept", tokenizeResult.kind)
-    assert.equal("table", type(tokenizeResult.result))
-    assert.equal("table", type(tokenizeResult.warnings))
-    return tokenizeResult.result, tokenizeResult.warnings
+local function extractResult(parseResult)
+    assert.equal("ParseAccept", parseResult.kind)
+    assert.equal("table", type(parseResult.result))
+    assert.equal("table", type(parseResult.warnings))
+    assert.equal("table", type(parseResult.strictProblems))
+    assert.are.same({}, parseResult.strictProblems, "expect lexer result to have no strict problem")
+    return parseResult.result, parseResult.warnings
 end
 
-local function extractResultNoWarn(tokenizeResult)
-    local result, warnings = extractResult(tokenizeResult)
+local function extractResultNoWarn(parseResult)
+    local result, warnings = extractResult(parseResult)
     assert.are.same({}, warnings, "expect result to have no warning")
     return result
 end
 
 local function position(index, row, col)
-    return lexer.Position.new(index, row, col)
+    return common.Position.new(index, row, col)
 end
 
 local function lineonepos(index)
-    return lexer.Position.new(index, 1, index)
+    return common.Position.new(index, 1, index)
 end
 
 local function problem(message, position)
-    return lexer.Problem.new(message, position)
+    return common.Problem.new(message, position)
 end
 
 local function plainText(position, content)

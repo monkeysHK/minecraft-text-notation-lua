@@ -1,43 +1,6 @@
-local lexer = { Position = {}, PlainTextToken = {}, NewlineToken = {}, TagToken = {}, TagSegment = {}, TokenizeAccept = {}, TokenizeReject = {}, TokenizeFail = {}, Problem = {} }
+local common = require("common")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+local lexer = { PlainTextToken = {}, NewlineToken = {}, TagToken = {}, TagSegment = {} }
 
 
 
@@ -106,41 +69,9 @@ function lexer.TagSegment.new(position, content, originalString)
    return self
 end
 
-function lexer.Position.new(index, line, col)
-   local self = setmetatable({}, { __index = lexer.Position })
-   self.index = index
-   self.line = line
-   self.col = col
-   return self
-end
-
-function lexer.Problem.new(message, position)
-   local self = setmetatable({}, { __index = lexer.Problem })
-   self.message = message
-   self.position = position
-   return self
-end
-
-function lexer.TokenizeAccept.new(result, nextIndex, warnings)
-   local self = setmetatable({}, { __index = lexer.TokenizeAccept })
-   self.kind = "TokenizeAccept"
-   self.result = result
-   self.nextIndex = nextIndex
-   self.warnings = warnings
-   return self
-end
-
-function lexer.TokenizeReject.new()
-   local self = setmetatable({}, { __index = lexer.TokenizeReject })
-   self.kind = "TokenizeReject"
-   return self
-end
-
-function lexer.TokenizeFail.new(failure)
-   local self = setmetatable({}, { __index = lexer.TokenizeFail })
-   self.kind = "TokenizeFail"
-   self.failure = failure
-   return self
+local function acceptForLexer(result, nextIndex, warnings)
+   local emptyStrictProblems = {}
+   return common.ParseAccept.new(result, nextIndex, warnings, emptyStrictProblems)
 end
 
 
@@ -157,14 +88,14 @@ function StringReference.new(text)
       local col = 0
       for i = 1, length do
          col = col + 1
-         positionMap[i] = lexer.Position.new(i, line, col)
+         positionMap[i] = common.Position.new(i, line, col)
          local ch = input:sub(i, i)
          if ch == "\n" then
             line = line + 1
             col = 0
          end
       end
-      positionMap[length + 1] = lexer.Position.new(length + 1, line, col + 1)
+      positionMap[length + 1] = common.Position.new(length + 1, line, col + 1)
       return positionMap
    end
 
@@ -202,7 +133,7 @@ local function tokenizeNonEmptyStringWithValidator(
       end
 
       if not validateChar(ch) then
-         return lexer.TokenizeFail.new(lexer.Problem.new(validateFailMessage:format(ch), textref:getPosition(pos)))
+         return common.ParseFail.new(common.Problem.new(validateFailMessage:format(ch), textref:getPosition(pos)))
       end
 
       local isEscape = ch == "\\"
@@ -211,11 +142,12 @@ local function tokenizeNonEmptyStringWithValidator(
 
          local escapeResult = validEscapes[escapeSequence]
          if escapeResult then
+            assert(#escapeResult == 1)
             content = content .. escapeResult
-            pos = pos + 2
+            pos = pos + (1 + 1)
          else
 
-            warnings[#warnings + 1] = lexer.Problem.new("invalid escape " .. escapeSequence, textref:getPosition(pos))
+            warnings[#warnings + 1] = common.Problem.new("invalid escape " .. escapeSequence, textref:getPosition(pos))
             content = content .. "\\"
             pos = pos + 1
          end
@@ -229,10 +161,10 @@ local function tokenizeNonEmptyStringWithValidator(
    end
 
    if content == "" then
-      return lexer.TokenizeReject.new()
+      return common.ParseReject.new()
    end
 
-   return lexer.TokenizeAccept.new(content, pos, warnings)
+   return acceptForLexer(content, pos, warnings)
 
 end
 
@@ -273,11 +205,11 @@ local function seekExpectedStrings(
    end
 
    if not matches then
-      return lexer.TokenizeReject.new()
+      return common.ParseReject.new()
    end
 
    local noWarning = {}
-   return lexer.TokenizeAccept.new(matchedString, startIndex + #matchedString, noWarning)
+   return acceptForLexer(matchedString, startIndex + #matchedString, noWarning)
 end
 
 local function tokenizeTagName(textref, startIndex)
@@ -303,8 +235,8 @@ local function tokenizeTagName(textref, startIndex)
    "invalid character in tag name: %s")
 
 
-   if result.kind == "TokenizeReject" then
-      return lexer.TokenizeFail.new(lexer.Problem.new("tag name cannot be empty", textref:getPosition(startIndex)))
+   if result.kind == "ParseReject" then
+      return common.ParseFail.new(common.Problem.new("tag name cannot be empty", textref:getPosition(startIndex)))
    end
 
    return result
@@ -330,29 +262,29 @@ local function tokenizeUnquotedTagArg(textref, startIndex)
    "invalid character in unquoted tag argument: %s")
 
 
-   local isEmptyString = result.kind == "TokenizeReject"
+   local isEmptyString = result.kind == "ParseReject"
    local acceptPosition = textref:getPosition(startIndex)
 
    if isEmptyString then
       local noWarning = {}
-      return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, "", ""), startIndex, noWarning)
+      return acceptForLexer(lexer.TagSegment.new(acceptPosition, "", ""), startIndex, noWarning)
    end
 
-   if result.kind == "TokenizeFail" then
+   if result.kind == "ParseFail" then
       return result
    end
 
-   assert(result.kind == "TokenizeAccept")
+   assert(result.kind == "ParseAccept")
    local originalString = textref.text:sub(startIndex, result.nextIndex - 1)
 
-   return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, result.result, originalString), result.nextIndex, result.warnings)
+   return acceptForLexer(lexer.TagSegment.new(acceptPosition, result.result, originalString), result.nextIndex, result.warnings)
 end
 
 local function tokenizeSingleQuotedTagArg(textref, startIndex)
    local seekResult = seekExpectedStrings(textref, startIndex, { "'" })
 
-   if seekResult.kind == "TokenizeReject" or seekResult.kind == "TokenizeFail" then
-      return lexer.TokenizeReject.new()
+   if seekResult.kind == "ParseReject" or seekResult.kind == "ParseFail" then
+      return common.ParseReject.new()
    end
 
    local validEscapes = {
@@ -370,17 +302,17 @@ local function tokenizeSingleQuotedTagArg(textref, startIndex)
    readUntilChars)
 
 
-   if result.kind == "TokenizeFail" then
+   if result.kind == "ParseFail" then
       return result
    end
 
-   local isEmptyString = result.kind == "TokenizeReject"
-   local endQuotePosition = result.kind == "TokenizeAccept" and result.nextIndex or startIndex + 1
+   local isEmptyString = result.kind == "ParseReject"
+   local endQuotePosition = result.kind == "ParseAccept" and result.nextIndex or startIndex + 1
 
    local seekResultEnd = seekExpectedStrings(textref, endQuotePosition, { "'" })
 
-   if seekResultEnd.kind == "TokenizeReject" or seekResultEnd.kind == "TokenizeFail" then
-      return lexer.TokenizeFail.new(lexer.Problem.new("unclosed single-quoted tag argument", textref:getPosition(endQuotePosition)))
+   if seekResultEnd.kind == "ParseReject" or seekResultEnd.kind == "ParseFail" then
+      return common.ParseFail.new(common.Problem.new("unclosed single-quoted tag argument", textref:getPosition(endQuotePosition)))
    end
 
    local acceptPosition = textref:getPosition(startIndex)
@@ -388,18 +320,18 @@ local function tokenizeSingleQuotedTagArg(textref, startIndex)
 
    if isEmptyString then
       local noWarning = {}
-      return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, "", originalString), seekResultEnd.nextIndex, noWarning)
+      return acceptForLexer(lexer.TagSegment.new(acceptPosition, "", originalString), seekResultEnd.nextIndex, noWarning)
    end
 
-   assert(result.kind == "TokenizeAccept")
-   return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, result.result, originalString), seekResultEnd.nextIndex, result.warnings)
+   assert(result.kind == "ParseAccept")
+   return acceptForLexer(lexer.TagSegment.new(acceptPosition, result.result, originalString), seekResultEnd.nextIndex, result.warnings)
 end
 
 local function tokenizeDoubleQuotedTagArg(textref, startIndex)
    local seekResult = seekExpectedStrings(textref, startIndex, { '"' })
 
-   if seekResult.kind == "TokenizeReject" or seekResult.kind == "TokenizeFail" then
-      return lexer.TokenizeReject.new()
+   if seekResult.kind == "ParseReject" or seekResult.kind == "ParseFail" then
+      return common.ParseReject.new()
    end
 
    local validEscapes = {
@@ -417,17 +349,17 @@ local function tokenizeDoubleQuotedTagArg(textref, startIndex)
    readUntilChars)
 
 
-   if result.kind == "TokenizeFail" then
+   if result.kind == "ParseFail" then
       return result
    end
 
-   local isEmptyString = result.kind == "TokenizeReject"
-   local endQuotePosition = result.kind == "TokenizeAccept" and result.nextIndex or startIndex + 1
+   local isEmptyString = result.kind == "ParseReject"
+   local endQuotePosition = result.kind == "ParseAccept" and result.nextIndex or startIndex + 1
 
    local seekResultEnd = seekExpectedStrings(textref, endQuotePosition, { '"' })
 
-   if seekResultEnd.kind == "TokenizeReject" or seekResultEnd.kind == "TokenizeFail" then
-      return lexer.TokenizeFail.new(lexer.Problem.new("unclosed double-quoted tag argument", textref:getPosition(endQuotePosition)))
+   if seekResultEnd.kind == "ParseReject" or seekResultEnd.kind == "ParseFail" then
+      return common.ParseFail.new(common.Problem.new("unclosed double-quoted tag argument", textref:getPosition(endQuotePosition)))
    end
 
    local acceptPosition = textref:getPosition(startIndex)
@@ -435,18 +367,18 @@ local function tokenizeDoubleQuotedTagArg(textref, startIndex)
 
    if isEmptyString then
       local noWarning = {}
-      return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, "", originalString), seekResultEnd.nextIndex, noWarning)
+      return acceptForLexer(lexer.TagSegment.new(acceptPosition, "", originalString), seekResultEnd.nextIndex, noWarning)
    end
 
-   assert(result.kind == "TokenizeAccept")
-   return lexer.TokenizeAccept.new(lexer.TagSegment.new(acceptPosition, result.result, originalString), seekResultEnd.nextIndex, result.warnings)
+   assert(result.kind == "ParseAccept")
+   return acceptForLexer(lexer.TagSegment.new(acceptPosition, result.result, originalString), seekResultEnd.nextIndex, result.warnings)
 end
 
 local function tokenizeTag(textref, startIndex)
    local startTagResult = seekExpectedStrings(textref, startIndex, { "</", "<" })
 
-   if startTagResult.kind == "TokenizeReject" or startTagResult.kind == "TokenizeFail" then
-      return lexer.TokenizeReject.new()
+   if startTagResult.kind == "ParseReject" or startTagResult.kind == "ParseFail" then
+      return common.ParseReject.new()
    end
 
    local warnings = {}
@@ -455,13 +387,13 @@ local function tokenizeTag(textref, startIndex)
 
    local tagNameResult = tokenizeTagName(textref, startTagResult.nextIndex)
 
-   if tagNameResult.kind == "TokenizeFail" then
+   if tagNameResult.kind == "ParseFail" then
 
       warnings[#warnings + 1] = tagNameResult.failure
-      return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, tagNameResult.failure.position.index - 1)), tagNameResult.failure.position.index, warnings)
+      return acceptForLexer(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, tagNameResult.failure.position.index - 1)), tagNameResult.failure.position.index, warnings)
    end
 
-   assert(not (tagNameResult.kind == "TokenizeReject"))
+   assert(not (tagNameResult.kind == "ParseReject"))
 
    for _, warning in ipairs(tagNameResult.warnings) do
       warnings[#warnings + 1] = warning
@@ -473,11 +405,11 @@ local function tokenizeTag(textref, startIndex)
 
    while pos <= textref.length do
       local seekResult = seekExpectedStrings(textref, pos, { ">", ":" })
-      if seekResult.kind == "TokenizeReject" or seekResult.kind == "TokenizeFail" then
+      if seekResult.kind == "ParseReject" or seekResult.kind == "ParseFail" then
 
          local ch = textref.text:sub(pos, pos)
-         warnings[#warnings + 1] = lexer.Problem.new("invalid character in tag: " .. ch, textref:getPosition(pos))
-         return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, pos - 1)), pos, warnings)
+         warnings[#warnings + 1] = common.Problem.new("invalid character in tag: " .. ch, textref:getPosition(pos))
+         return acceptForLexer(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, pos - 1)), pos, warnings)
       end
 
       pos = seekResult.nextIndex
@@ -485,19 +417,19 @@ local function tokenizeTag(textref, startIndex)
       local reachedEndOfTag = seekResult.result == ">"
       if reachedEndOfTag then
          local originalString = textref.text:sub(startIndex, pos - 1)
-         return lexer.TokenizeAccept.new(lexer.TagToken.new(textref:getPosition(startIndex), tagNameResult.result, arguments, isEndTag, originalString), pos, warnings)
+         return acceptForLexer(lexer.TagToken.new(textref:getPosition(startIndex), tagNameResult.result, arguments, isEndTag, originalString), pos, warnings)
       end
 
       local foundResult = nil
       for _, tokenizer in ipairs(tokenizersToTry) do
          local result = tokenizer(textref, pos)
-         if result.kind == "TokenizeFail" then
+         if result.kind == "ParseFail" then
 
             warnings[#warnings + 1] = result.failure
-            return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, result.failure.position.index - 1)), result.failure.position.index, warnings)
+            return acceptForLexer(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, result.failure.position.index - 1)), result.failure.position.index, warnings)
          end
 
-         if result.kind == "TokenizeAccept" then
+         if result.kind == "ParseAccept" then
             foundResult = result
             break
          end
@@ -505,7 +437,7 @@ local function tokenizeTag(textref, startIndex)
 
       end
 
-      assert(foundResult.kind == "TokenizeAccept")
+      assert(foundResult.kind == "ParseAccept")
       arguments[#arguments + 1] = foundResult.result
       pos = foundResult.nextIndex
       for _, warning in ipairs(foundResult.warnings) do
@@ -514,18 +446,18 @@ local function tokenizeTag(textref, startIndex)
    end
 
 
-   warnings[#warnings + 1] = lexer.Problem.new("unclosed tag", textref:getPosition(pos))
-   return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, pos - 1)), pos, warnings)
+   warnings[#warnings + 1] = common.Problem.new("unclosed tag", textref:getPosition(pos))
+   return acceptForLexer(lexer.PlainTextToken.new(textref:getPosition(startIndex), textref.text:sub(startIndex, pos - 1)), pos, warnings)
 end
 
 local function tokenizeNewline(textref, startIndex)
    local result = seekExpectedStrings(textref, startIndex, { "\n" })
 
-   if result.kind == "TokenizeReject" or result.kind == "TokenizeFail" then
-      return lexer.TokenizeReject.new()
+   if result.kind == "ParseReject" or result.kind == "ParseFail" then
+      return common.ParseReject.new()
    end
 
-   return lexer.TokenizeAccept.new(lexer.NewlineToken.new(textref:getPosition(startIndex)), result.nextIndex, {})
+   return acceptForLexer(lexer.NewlineToken.new(textref:getPosition(startIndex)), result.nextIndex, {})
 end
 
 local function tokenizePlainText(textref, startIndex)
@@ -545,10 +477,10 @@ local function tokenizePlainText(textref, startIndex)
    readUntilChars)
 
 
-   assert(not (result.kind == "TokenizeFail"))
+   assert(not (result.kind == "ParseFail"))
 
-   if result.kind == "TokenizeAccept" then
-      return lexer.TokenizeAccept.new(lexer.PlainTextToken.new(textref:getPosition(startIndex), result.result), result.nextIndex, result.warnings)
+   if result.kind == "ParseAccept" then
+      return acceptForLexer(lexer.PlainTextToken.new(textref:getPosition(startIndex), result.result), result.nextIndex, result.warnings)
    end
 
    return result
@@ -572,7 +504,7 @@ function lexer.tokenize(text)
 
          local result = tokenizer(textref, pos)
 
-         if result.kind == "TokenizeAccept" then
+         if result.kind == "ParseAccept" then
             tokens[#tokens + 1] = result.result
             pos = result.nextIndex
             for _, warning in ipairs(result.warnings) do
@@ -580,13 +512,13 @@ function lexer.tokenize(text)
             end
          end
 
-         assert(not (result.kind == "TokenizeFail"))
+         assert(not (result.kind == "ParseFail"))
 
 
       end
    end
 
-   return lexer.TokenizeAccept.new(tokens, pos, warnings)
+   return acceptForLexer(tokens, pos, warnings)
 end
 
 return lexer
